@@ -138,23 +138,9 @@ get_package_versions() {
   local pip_install_args=()
   local version_output_raw
 
-  # we rely on the "legacy resolver" to get versions, which was introduced in 20.3
-  if [ "${pip_version_major}" -ge 21 ] ||
-    { [ "${pip_version_major}" -eq 20 ] && [ "${pip_version_minor}" -ge 3 ]; }; then
-    pip_install_args+=("--use-deprecated=legacy-resolver")
-  fi
-  version_output_raw=$("${ASDF_PYAPP_RESOLVED_PYTHON_PATH}" -m pip install ${pip_install_args[@]+"${pip_install_args[@]}"} "${package}==" 2>&1) || true
-
-  local regex='.*from versions:(.*)\)'
-  if [[ $version_output_raw =~ $regex ]]; then
-    local version_substring="${BASH_REMATCH[1]//','/}"
-    # trim whitespace with 'xargs echo' and convert spaces to newlines with 'tr'
-    local version_list
-    version_list=$(echo "$version_substring" | xargs echo | tr " " "\n")
-    echo "$version_list"
-  else
-    fail "Unable to parse versions for '${package}'"
-  fi
+  version_output_raw=$("${ASDF_PYAPP_RESOLVED_PYTHON_PATH}" -m pip index versions ${pip_install_args[@]+"${pip_install_args[@]}"} "${package}" 2>&1 |grep -v 'experimental command'|grep -v "${package}") || true
+  version_list="$(echo ${version_output_raw}|sed 's|^Available versions: ||'|tr ',' '\n'|tr -d ' '|LANG=C sort -V|tr '\n' ' ')"
+  echo "${version_list}"
 }
 
 sort_versions() {
